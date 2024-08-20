@@ -10,6 +10,7 @@ main(int argc,char *argv[]){
     if(pipe(p)==-1||pipe(c)==-1){
        exit(2);
     }
+    
     int pid = fork();
     if(pid<0){
         exit(3);
