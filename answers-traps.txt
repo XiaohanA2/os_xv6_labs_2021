@@ -1,0 +1,50 @@
+ 1. ***Which registers contain arguments to functions? For example, which register holds 13 in main's call to `printf`?  哪些寄存器保存函数的参数？例如，在main对printf的调用中，哪个寄存器保存13？***
+      ![alt text](image-12.png)
+      通过阅读 call.asm 文件中的 main 函数可知，调用 printf 函数时，13 被寄存器 a2 保存。其中 li a2,13 意思如下：
+
+      - li：指令助记符，表示将立即数（immediate）加载到寄存器中。
+      - a2：寄存器名，表示要将立即数加载到寄存器 a2 中。
+      - 13：立即数，表示要加载的整数值。
+
+      所以，函数参数存储在寄存器a0~a7中，例如main函数的`printf`中的13寄存在a2寄存器中。
+
+   2. ***Where is the call to function `f` in the assembly code for main? Where is the call to `g`? (Hint: the compiler may inline functions.)   main的汇编代码中对函数f的调用在哪里？对g的调用在哪里(提示：编译器可能会将函数内联）***
+      - 通过阅读函数 f 和 g 得知：函数 f 调用函数 g ；函数 g 使传入的参数加 3 后返回。
+
+      - 所以总结来说，函数 f 就是使传入的参数加 3 后返回。考虑到编译器会进行内联优化，这就意味着一些显而易见的，编译时可以计算的数据会在编译时得出结果，而不是进行函数调用。
+      查看 main 函数可以发现，printf 中包含了一个对 f 的调用。
+      但是对应的会汇编代码却是直接将 f(8)+1 替换为 12 。这就说明编译器对这个函数调用进行了优化，所以对于 main 函数的汇编代码来说，其并没有调用函数 f 和 g ，而是在运行之前由编译器对其进行了计算。
+
+      - **所以答案为**：main 的汇编代码没有调用 f 和 g 函数。`g`被内联inline到 f(x) 中，然后 `f`又被进一步内联到 `main`中。编译器对其进行了优化。
+
+   3. ***At what address is the function `printf` located? printf函数位于哪个地址？***
+    ![alt text](image-13.png)
+      - `printf`函数位于 `0x0000000000000628`, main 中使用 pc 相对寻址来计算得到这个地址。
+
+   4. ***What value is in the register `ra` just after the `jalr` to `printf` in `main`?  在main中printf的jalr之后的寄存器ra中有什么值？***
+
+      `0x0000000000000038`, jalr 指令的下一条汇编指令的地址。
+
+   5. ***Run the following code.  运行以下代码。***
+
+      ```C
+      	unsigned int i = 0x00646c72;
+      	printf("H%x Wo%s", 57616, &i);
+      ```
+
+      ***What is the output? [Here's an ASCII table](https://www.asciitable.com/) that maps bytes to characters.  程序的输出是什么？这是将字节映射到字符的ASCII码表。***
+
+      ***The output depends on that fact that the RISC-V is little-endian. If the RISC-V were instead big-endian what would you set to in order to yield the same output? Would you need to change to a different value?  输出取决于RISC-V小端存储的事实。如果RISC-V是大端存储，为了得到相同的输出，你会把i设置成什么？是否需要将57616更改为其他值？***
+      运行结果是：`HE110 World`；
+
+      需要将`unsigned int i = 0x00646c72;`替换成`unsigned int i = 0x00726c64;`
+
+      不需要，57616 的十六进制是 110，无论端序（十六进制和内存中的表示不是同个概念）
+
+   6. ***In the following code, what is going to be printed after ? (note: the answer is not a specific value.) Why does this happen? `'y='`  在下面的代码中，“y=”之后将打印什么(注：答案不是一个特定的值）？为什么会发生这种情况？***
+
+      ```C
+      	printf("x=%d y=%d", 3);
+      ```
+      输出的是一个受调用前的代码影响的“随机”的值。
+      因为 printf 尝试读的参数数量比提供的参数数量多。 第二个参数 `3` 通过 a1 传递，而第三个参数对应的寄存器 a2 在调用前不会被设置为任何具体的值，而是会包含调用发生前的任何已经在里面的值。
