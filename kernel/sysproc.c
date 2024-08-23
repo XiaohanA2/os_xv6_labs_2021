@@ -98,3 +98,36 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// sys_sigalarm: 设置一个定时器，当定时间隔到达时，执行指定的信号处理函数
+uint64 
+sys_sigalarm(void) 
+{
+  int interval;  // 用于存储从用户态传递过来的定时间隔
+  uint64 handler;  // 用于存储从用户态传递过来的信号处理函数的地址
+
+  // 获取第一个参数（定时间隔），并将其存储在interval变量中
+  if (argint(0, &interval) < 0)
+    return -1;  // 如果获取失败，返回错误代码-1
+
+  // 获取第二个参数（信号处理函数的地址），并将其存储在handler变量中
+  if (argaddr(1, &handler) < 0)
+    return -1;  // 如果获取失败，返回错误代码-1
+
+  // 设置当前进程的定时器间隔和信号处理函数
+  myproc()->alarm_interval = interval;  // 将定时间隔赋值给当前进程的alarm_interval变量
+  myproc()->alarm_handler = handler;  // 将信号处理函数的地址赋值给当前进程的alarm_handler变量
+  return 0;  // 成功返回0
+}
+
+// sys_sigreturn: 从信号处理函数返回，并恢复进程执行状态
+uint64 
+sys_sigreturn(void) 
+{
+  // 将保存的陷阱帧状态（alarm_trapframe）复制回当前进程的trapframe，以恢复执行状态
+  memmove(myproc()->trapframe, &(myproc()->alarm_trapframe), sizeof(struct trapframe));
+
+  // 重置定时器计数器，将alarm_ticks清零
+  myproc()->alarm_ticks = 0;
+  return 0;  // 成功返回0
+}

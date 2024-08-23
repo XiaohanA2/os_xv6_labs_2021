@@ -105,4 +105,22 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  
+  // alarm
+int alarm_interval;  
+// `sys_sigalarm()` 系统调用设置的定时器间隔，单位为系统时钟滴答数（ticks）。
+// 每个滴答通常为几毫秒。该值在调用 `sys_sigalarm()` 时被设置，表示间隔多少个时钟滴答触发一次信号处理函数。
+
+int alarm_ticks;  
+// 定时器的剩余计数器值，以系统时钟滴答数为单位。当该值减至零时，操作系统会向进程发送 SIGALRM 信号。
+// `alarm_ticks` 在调用 `sys_sigalarm()` 时通常初始化为 `alarm_interval` 的值，并在每个时钟滴答时递减。
+
+uint64 alarm_handler;  
+// 指向注册的 SIGALRM 信号处理函数的指针。当操作系统向进程发送 SIGALRM 信号时，将执行此指针所指向的函数。
+// 该处理函数用于在定时器到期时执行指定的任务或操作。
+
+struct trapframe alarm_trapframe;  
+// 保存进程的陷阱帧状态，当信号处理函数被调用时，用于存储当前的CPU状态。
+// 在信号处理函数执行完毕后，可以通过该结构恢复进程的原始状态，继续执行被中断的代码。
+
 };

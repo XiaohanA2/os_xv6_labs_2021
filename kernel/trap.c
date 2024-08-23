@@ -77,9 +77,15 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2){  // 检查触发的设备或事件编号是否为2，这可能代表一个特定的计时器或其他设备
+    if (p->alarm_interval){  // 检查进程是否有设置定时警报的间隔
+      if (++p->alarm_ticks == p->alarm_interval){  // 自增进程的定时计数器并检查是否达到了定时间隔
+        memmove(&(p->alarm_trapframe), p->trapframe, sizeof(*(p->trapframe)));  // 将当前进程的陷阱帧状态拷贝到alarm_trapframe，用于在信号处理完成后恢复状态
+        p->trapframe->epc = p->alarm_handler;  // 设置程序计数器epc指向信号处理函数，使得下一条执行的指令是信号处理函数
+      }
+    }
     yield();
-
+  }
   usertrapret();
 }
 
