@@ -132,3 +132,19 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+void backtrace(void)
+{
+  printf("backtrace:\n");  // 打印"backtrace:"，表示开始回溯
+  uint64 fp = r_fp();  // 获取当前函数的帧指针(fp)，通常存储在寄存器中
+  uint64 *frame = (uint64 *) fp;  // 将帧指针转换为uint64类型的指针，指向栈帧的起始位置
+  uint64 up = PGROUNDUP(fp);  // 对帧指针向上取整到最近的页面边界
+  uint64 down = PGROUNDDOWN(fp);  // 对帧指针向下取整到最近的页面边界
+  
+  // 循环遍历每个栈帧，直到帧指针超出当前页的范围
+  while (fp < up && fp > down){
+    printf("%p\n", frame[-1]);  // 打印当前栈帧的返回地址，存放在帧指针前一个位置
+    fp = frame[-2];  // 更新帧指针为上一个栈帧的帧指针，存放在帧指针前两个位置
+    frame = (uint64 *)fp;  // 更新frame指针到新的帧指针位置
+  }
+}
