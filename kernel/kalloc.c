@@ -53,40 +53,38 @@ freerange(void *pa_start, void *pa_end)
     kfree(p);
 }
 
-// Free the page of physical memory pointed at by v,
-// which normally should have been returned by a
-// call to kalloc().  (The exception is when
-// initializing the allocator; see kinit above.)
+// 负责释放内存，将其归还到当前 CPU 的空闲内存链表中。
 void
 kfree(void *pa)
 {
-  struct run *r;
-  int cpu_id; // cpu Id
+  struct run *r;  // 定义一个指向内存块的指针，将其作为链表节点
+  int cpu_id;  // 用于存储当前 CPU 的 ID
 
+  // 检查传入的内存地址是否有效
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
+  // 用垃圾数据填充内存块，帮助捕捉悬空引用问题
   memset(pa, 1, PGSIZE);
 
-  r = (struct run*)pa;
-  // 获取 cpu Id 
-  push_off();
-  cpu_id=cpuid();
-  pop_off();
+  r = (struct run*)pa;  // 将内存块转换为 `run` 结构，准备插入空闲链表
 
-  // 只有在中断关闭时调用函数cpuid返回当前的核心编号，并使用其结果才是安全的。
-  // 使用push_off()和pop_off()来关闭和打开中断。
-  push_off(); 
-  int id = cpuid();
+  // 获取当前 CPU 的 ID，并关闭中断以确保获取过程的原子性
+  push_off();  // 关闭中断，防止上下文切换干扰
+  cpu_id = cpuid();  // 获取当前 CPU 的 ID
+  pop_off();  // 恢复中断状态
 
+  // 锁定当前 CPU 的空闲列表，以确保操作的线程安全
   acquire(&kmem[cpu_id].lock);
-  r->next = kmem[cpu_id].freelist;
-  kmem[cpu_id].freelist = r;
-  release(&kmem[cpu_id].lock);
 
-  pop_off();
+  // 将当前内存块插入到当前 CPU 的空闲链表中
+  r->next = kmem[cpu_id].freelist;  // 将内存块的 `next` 指针指向当前的空闲列表头
+  kmem[cpu_id].freelist = r;  // 更新空闲列表头为当前内存块
+
+  // 释放锁，允许其他线程或进程访问空闲列表
+  release(&kmem[cpu_id].lock);
 }
+
 
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
