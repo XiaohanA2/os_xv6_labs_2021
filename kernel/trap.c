@@ -65,9 +65,63 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if((which_dev = devintr()) != 0){
+  }
+  else if (r_scause() == 13 || r_scause() == 15)
+  {
+    pte_t *pte;  // 页表项指针
+    uint64 va, pa;  // va: 引发异常的虚拟地址, pa: 对应的物理地址
+    uint flags;  // 用于存储页表项的标志位
+    char *mem;  // 用于存储新分配的物理内存地址
+
+    va = r_stval();  // 获取导致页面错误的虚拟地址
+    
+    // 核心点：通过检查虚拟地址，避免超出最大虚拟地址范围 (MAXVA) 或溢出到保护页
+    if (va >= MAXVA || (va <= PGROUNDDOWN(p->trapframe->sp) && va >= PGROUNDDOWN(p->trapframe->sp) - PGSIZE))
+    {
+      p->killed = 1;  // 如果虚拟地址超出范围或溢出到保护页，标记进程为已终止
+    }
+    else
+    {
+      va = PGROUNDDOWN(va);  // 将虚拟地址向下取整到页边界
+      if ((pte = walk(p->pagetable, va, 0)) == 0)  // 获取虚拟地址对应的页表项，若失败则终止进程
+        p->killed = 1;
+      else
+      {
+        if ((*pte & PTE_COW) != 0)  // 检查页表项的COW标志位是否被设置
+        {
+          if ((mem = kalloc()) == 0)  // 尝试分配一页新的物理内存，若失败则终止进程
+          {
+            p->killed = 1;
+          }
+          else
+          {
+            pa = PTE2PA(*pte);  // 提取原始页的物理地址
+            *pte = ((*pte) | PTE_W) & (~PTE_COW);  // 设置写权限并清除COW标志
+            flags = PTE_FLAGS(*pte);  // 获取当前页表项的标志位
+            memmove(mem, (char *)pa, PGSIZE);  // 将原始页的内容复制到新分配的页中
+            
+            // 核心点：防止重新映射导致的内存错误
+            uvmunmap(p->pagetable, va, 1, 1);  // 取消映射原来的物理页
+            if (mappages(p->pagetable, va, PGSIZE, (uint64)mem, flags) != 0)  // 重新映射新分配的页
+            {
+              uvmunmap(p->pagetable, va, 1, 1);  // 若重新映射失败，取消映射并终止进程
+              p->killed = 1;
+            }
+          }
+        }
+        else
+        {
+          p->killed = 1;  // 如果页面错误不是由COW引起的，直接终止进程
+        }
+      }
+    }
+  }
+
+  else if ((which_dev = devintr()) != 0)
+  {
     // ok
-  } else {
+  } 
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
