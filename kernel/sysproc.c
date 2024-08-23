@@ -80,41 +80,49 @@ sys_sleep(void)
 int
 sys_pgaccess(void)
 {
-  // lab pgtbl: your code here.
-   uint64 addr;
+  // 定义变量：地址、长度和位掩码
+  uint64 addr;
   int len;
   int bitmask;
 
-  if(argaddr(0,&addr)<0){
-    return -1;
-  }
-  if(argint(1,&len)<0){
-    return -1;
-  }
-  if(argint(2,&bitmask)<0){
-    return -1;
-  }
-  // It's okay to set an upper limit on the number of pages that can be scanned.
-  if(len>32 || len<0){
-    return -1;
+  // 从用户态获取第一个参数：虚拟地址
+  if(argaddr(0, &addr) < 0){
+    return -1;  // 获取失败则返回-1
   }
 
-  int res=0;
-  struct proc *p = myproc();
-
-  for(int i=0;i<len;i++){
-    int va = addr + i * PGSIZE;
-    int abit = vm_pgaccess(p->pagetable,va);
-    res = res | abit << i;
-
+  // 从用户态获取第二个参数：长度（页数）
+  if(argint(1, &len) < 0){
+    return -1;  // 获取失败则返回-1
   }
 
-  if(copyout(p->pagetable, bitmask, (char*)&res,sizeof(res))<0 ){
-    return -1;
+  // 从用户态获取第三个参数：位掩码（存放结果的用户地址）
+  if(argint(2, &bitmask) < 0){
+    return -1;  // 获取失败则返回-1
   }
 
-  return 0;
+  // 检查长度是否超出合理范围，最多检查32页
+  if(len > 32 || len < 0){
+    return -1;  // 超出范围也返回-1
+  }
+
+  int res = 0;  // 结果初始化为0
+  struct proc *p = myproc();  // 获取当前进程的进程结构
+
+  // 遍历每一个页，计算访问状态
+  for(int i = 0; i < len; i++){
+    int va = addr + i * PGSIZE;  // 计算当前页的虚拟地址
+    int abit = vm_pgaccess(p->pagetable, va);  // 检查当前页的访问情况
+    res = res | (abit << i);  // 将结果位按页序存入结果变量res中
+  }
+
+  // 将结果复制回用户空间的位掩码变量中
+  if(copyout(p->pagetable, bitmask, (char*)&res, sizeof(res)) < 0){
+    return -1;  // 复制失败返回-1
+  }
+
+  return 0;  // 执行成功返回0
 }
+
 #endif
 
 uint64

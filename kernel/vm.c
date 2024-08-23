@@ -465,22 +465,28 @@ vmprint(pagetable_t pagetable)
   printwalk(pagetable, 1);
 }
 
-int
-vm_pgaccess(pagetable_t pagetable, uint64 va){
-  pte_t *pte;
+// 检查给定虚拟地址的页面是否被访问过
+int vm_pgaccess(pagetable_t pagetable, uint64 va){
+  pte_t *pte;  // 定义页表项指针
 
+  // 如果虚拟地址超过最大值，则返回0（表示没有被访问）
   if(va >= MAXVA)
     return 0;
 
+  // 使用walk函数来获取虚拟地址对应的页表项，不需要创建新页表项
   pte = walk(pagetable, va, 0);
+  // 如果页表项不存在，也返回0（表示没有被访问）
   if(pte == 0){
     return 0;
   }
+
+  // 检查页表项的访问标志位(PTE_A)
   if((*pte & PTE_A) != 0){
-    *pte = *pte & (~PTE_A);// clear 6th flag (PTE_A)
-    return 1;
+    // 如果访问标志位被设置，清除访问标志位
+    *pte = *pte & (~PTE_A);  // 清除第6个标志位(PTE_A)
+    return 1;  // 返回1，表示页面被访问过
   }
 
-
+  // 如果访问标志位没有被设置，返回0
   return 0;
 }
